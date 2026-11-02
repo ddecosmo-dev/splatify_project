@@ -1,3 +1,10 @@
+#dataset creation ignore data
+dataset-creation/data/
+
+#ignore all contents of the main data folder 
+data/*
+!data/.gitkeep
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
