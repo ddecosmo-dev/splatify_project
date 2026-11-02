@@ -31,28 +31,91 @@ The models folder is unused but holds the base 3D models as .glb files.
 
 ## Using Data Loading Utils
 
-After installing the dataset in `data/abo/`, use `ABODataset` from the project root:
+The `utils/ablation_dataset.py` file provides a shared interface for accessing the dataset. It allows team members to select products, load evenly spaced images, and access the corresponding ground-truth 3D meshes without manually navigating the dataset directories.
 
-Run the loader tests from the project root with:
+The loader automatically locates `data/abo/` relative to the repository root.
 
-```bash
-pytest tests/test_ablation_dataset.py
-```
+### Initializing the Dataset
 
-For using the helper in your own code:
+Import the `ABODataset` class and initialize the dataset:
 
 ```python
 from utils.ablation_dataset import ABODataset
 
 dataset = ABODataset()
-product = dataset.list_products(category="CHAIR")[0]
-sample = dataset.get_product(product["spin_id"], num_images=18)
-
-print(sample["image_paths"])
-print(sample["mesh_path"])
 ```
 
-`num_images` controls how many evenly spaced views are returned. The standard experiment sizes are 72, 36, 18, and 9. Use `load_images()` or `load_mesh()` when the files need to be loaded into memory.
+Products can be accessed using either their `spin_id` or `item_id`. To retrieve the available products, optionally filtered by category:
 
+```python
+products = dataset.list_products(category="CHAIR")
+product = products[0]
 
-The tests check the loader with sample data. If the downloaded dataset exists in `data/abo/`, they also verify its images and meshes.
+spin_id = product["spin_id"]
+```
+
+### Selecting Images for Reconstruction
+
+The loader supports any number of images between 1 and 72, selecting approximately equidistant views around the object.
+
+The standard ablation configurations are 72, 36, 18, and 9 images, corresponding to every 1st, 2nd, 4th, and 8th image.
+
+```python
+# Get image paths without loading images into memory
+images = dataset.get_image_paths(spin_id, num_images=18)
+
+# Load images as PIL RGB objects
+images = dataset.load_images(spin_id, num_images=18)
+```
+
+The images are returned in rotation order. The original files are not modified or duplicated.
+
+### Loading Ground-Truth Meshes
+
+Every selected product has an associated ground-truth 3D model, identified through `selected_products.csv`.
+
+```python
+# Get the corresponding mesh file path
+mesh_path = dataset.get_mesh_path(spin_id)
+
+# Load mesh geometry using trimesh
+mesh = dataset.load_mesh(spin_id)
+
+print(mesh.vertices.shape)
+print(mesh.faces.shape)
+```
+
+By default, the loader uses the converted `.ply` mesh. The original `.glb` file can also be accessed using `mesh_format="glb"`.
+
+```python
+mesh = dataset.load_mesh(spin_id, mesh_format="glb")
+```
+
+The returned mesh is a `trimesh.Trimesh` object, allowing direct access to vertices, faces, surface area, and other geometric properties for reconstruction accuracy analysis.
+
+### Loading a Complete Product
+
+For convenience, `get_product()` returns the selected image paths, image indices, mesh path, and product metadata together.
+
+```python
+sample = dataset.get_product(spin_id, num_images=18)
+
+images = sample["image_paths"]
+mesh_path = sample["mesh_path"]
+indices = sample["image_indices"]
+
+print(sample["product_type"])
+print(indices)
+```
+
+This is the recommended method for integrating the dataset into different reconstruction pipelines, ensuring that each technique receives the same input images and corresponding ground-truth geometry.
+
+### Testing the Dataset
+
+Run the loader tests from the repository root:
+
+```bash
+pytest tests/test_ablation_dataset.py
+```
+
+The tests verify product lookup, image selection, mesh loading, and missing-file handling using sample data. If the downloaded dataset is available in `data/abo/`, an additional test checks the actual dataset files.
