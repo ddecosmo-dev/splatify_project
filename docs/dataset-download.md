@@ -31,4 +31,28 @@ The models folder is unused but holds the base 3D models as .glb files.
 
 ## Using Data Loading Utils
 
-COMING NEXT 
+After installing the dataset in `data/abo/`, use `ABODataset` from the project root:
+
+Run the loader tests from the project root with:
+
+```bash
+pytest tests/test_ablation_dataset.py
+```
+
+For using the helper in your own code:
+
+```python
+from utils.ablation_dataset import ABODataset
+
+dataset = ABODataset()
+product = dataset.list_products(category="CHAIR")[0]
+sample = dataset.get_product(product["spin_id"], num_images=18)
+
+print(sample["image_paths"])
+print(sample["mesh_path"])
+```
+
+`num_images` controls how many evenly spaced views are returned. The standard experiment sizes are 72, 36, 18, and 9. Use `load_images()` or `load_mesh()` when the files need to be loaded into memory.
+
+
+The tests check the loader with sample data. If the downloaded dataset exists in `data/abo/`, they also verify its images and meshes.
