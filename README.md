@@ -54,10 +54,14 @@ To verify the dataset loader:
 pytest tests/test_ablation_dataset.py
 ```
 
+## Experiment Overview 
+
+For each method, each object should be tested for 4 different image amouns 72, 16, 18, 9. This gives a wide range of quality and images can be pulled at equidistant angles using the shared utility.
+
+For comparing meshes, the ground truth and model output mesh should be the same type to make comparison reasonable. 
+
 ## Metrics
 
-Reconstruction techniques will be evaluated based on geometric accuracy, visual fidelity, computational requirements, and reconstruction reliability.
-
-Primary geometric metrics include Chamfer Distance, F-score, and dimensional error, comparing reconstructed meshes against the ground-truth geometry.
+TODO 
 
 For metric definitions and evaluation methods, see [Metrics](docs/metrics.md).
