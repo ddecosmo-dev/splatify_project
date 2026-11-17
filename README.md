@@ -18,6 +18,17 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Project File Locations
+
+Keep method-specific code, notebooks, and documentation in the corresponding
+top-level folder: `COLMAP/`, `3DGS/`, or `VGGT/`. Store datasets and generated
+outputs locally in `data/` or another ignored output directory.
+
+Do not commit generated `.ply` point clouds or other binary artifacts (such as
+model checkpoints or archives) to the repository. Share large artifacts through
+the project Google Drive or Kaggle instead, and commit only the code and
+configuration needed to reproduce them.
+
 ## Loading Data
 
 The project uses a 100-product subset of the Amazon Berkeley Objects (ABO) dataset, containing 72 images and a ground-truth 3D model for each product.
@@ -54,10 +65,36 @@ To verify the dataset loader:
 pytest tests/test_ablation_dataset.py
 ```
 
+## Naive Video Pipeline
+
+The initial app framework accepts an MP4, extracts `N` approximately
+equidistant frames, checks basic brightness, contrast, and sharpness, and
+writes a reconstruction-ready input manifest. The reconstruction model is not
+connected yet.
+
+```bash
+python -m app.naive_app input.mp4 --number-of-frames 18 --output-dir output/run-1
+```
+
+The output directory contains:
+
+- `frames/`: all sampled JPEG frames
+- `frame_manifest.json`: quality metrics and rejection reasons per frame
+- `reconstruction_request.json`: accepted frame paths for the future model;
+  its status is only `ready` when all `N` requested frames pass quality checks
+
+Quality thresholds can be tuned with `--min-brightness`, `--max-brightness`,
+`--min-contrast`, and `--min-sharpness`. Run `python -m app.naive_app --help`
+for the full interface.
+
+## Experiment Overview 
+
+For each method, each object should be tested for 4 different image amouns 72, 16, 18, 9. This gives a wide range of quality and images can be pulled at equidistant angles using the shared utility.
+
+For comparing meshes, the ground truth and model output mesh should be the same type to make comparison reasonable. 
+
 ## Metrics
 
-Reconstruction techniques will be evaluated based on geometric accuracy, visual fidelity, computational requirements, and reconstruction reliability.
-
-Primary geometric metrics include Chamfer Distance, F-score, and dimensional error, comparing reconstructed meshes against the ground-truth geometry.
+TODO 
 
 For metric definitions and evaluation methods, see [Metrics](docs/metrics.md).
