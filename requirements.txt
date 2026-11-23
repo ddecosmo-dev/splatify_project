@@ -4,6 +4,7 @@ trimesh
 pillow
 pytest
 numpy>=1.24.4
+scipy>=1.11.0
 opencv-python-headless>=4.10.0
 matplotlib>=3.9.1
 huggingface-hub
