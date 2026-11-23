@@ -1,5 +1,6 @@
 #dataset creation ignore data
 dataset-creation/data/
+outputs/*
 
 #ignore all contents of the main data folder 
 data/*
