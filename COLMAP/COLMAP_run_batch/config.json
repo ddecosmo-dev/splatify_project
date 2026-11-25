@@ -1,0 +1,15 @@
+{
+  "colmap_executable": "D:/CMU_File/Computer Vision for Engineers/Project/COLMAP/colmap-x64-windows-cuda/COLMAP_batch.bat",
+  "data_dir": "data/abo-selected-20",
+  "output_dir": "data/colmap_runs_v4",
+  "expected_products": 20,
+  "mode": "all",
+  "pilot_product_id": "",
+  "image_counts": [18, 36, 72],
+  "single_camera": 1,
+  "max_image_size": 2000,
+  "meshing": true,
+  "poisson_depth": 13,
+  "poisson_trim": 5,
+  "stage_timeout_seconds": 7200
+}
