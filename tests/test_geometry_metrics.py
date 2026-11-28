@@ -63,6 +63,21 @@ def test_evaluate_geometry_returns_normalized_metrics():
     assert result.normalized_accuracy == pytest.approx(0.0, abs=1e-12)
     assert result.normalized_completeness == pytest.approx(0.0, abs=1e-12)
     assert result.normalized_chamfer_l1 == pytest.approx(0.0, abs=1e-12)
+    assert result.noise_error_percent == 0.0
+
+
+def test_noise_error_counts_only_prediction_points_beyond_the_tolerance():
+    reference = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [20.0, 0.0, 0.0]])
+    prediction = np.array([[0.0, 0.0, 0.0], [10.0, 1.0, 0.0], [10.0, 2.0, 0.0]])
+
+    metrics = geometric_metrics(prediction, reference, workers=1)
+
+    assert metrics["noise_threshold_fraction"] == 0.05
+    assert metrics["noise_error_percent"] == pytest.approx(100 / 3)
+    assert metrics["completeness"] > 0.0
+    assert geometric_metrics(
+        prediction, reference, noise_threshold_fraction=0.1, workers=1,
+    )["noise_error_percent"] == 0.0
 
 
 def test_metrics_reject_nonfinite_points():

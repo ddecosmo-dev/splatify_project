@@ -9,6 +9,9 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 
+DEFAULT_NOISE_THRESHOLD = 0.05
+
+
 @dataclass(frozen=True)
 class AlignmentResult:
     """Prediction points after similarity alignment to a reference sample."""
@@ -35,6 +38,8 @@ class GeometryMetrics:
     normalized_completeness: float
     normalized_chamfer_l1: float
     reference_diagonal: float
+    noise_error_percent: float
+    noise_threshold_fraction: float
 
 
 def _points(value: np.ndarray, name: str) -> np.ndarray:
@@ -117,13 +122,14 @@ def _refine_rigid(
     translation: np.ndarray,
     iterations: int,
     trim_fraction: float,
+    workers: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     reference_tree = cKDTree(reference)
     previous_cost = np.inf
 
     for _ in range(iterations):
         transformed = source @ rotation.T + translation
-        distances, indices = reference_tree.query(transformed, workers=-1)
+        distances, indices = reference_tree.query(transformed, workers=workers)
         keep_count = max(3, int(np.ceil(len(distances) * trim_fraction)))
         keep = np.argpartition(distances, keep_count - 1)[:keep_count]
         delta_rotation, delta_translation = _rigid_fit(
@@ -149,12 +155,13 @@ def _symmetric_cost(
     prediction: np.ndarray,
     reference: np.ndarray,
     trim_fraction: float,
+    workers: int,
 ) -> float:
     prediction_distances = cKDTree(reference).query(
-        prediction, workers=-1
+        prediction, workers=workers
     )[0]
     reference_distances = cKDTree(prediction).query(
-        reference, workers=-1
+        reference, workers=workers
     )[0]
     return 0.5 * (
         _trimmed_mean(prediction_distances, trim_fraction)
@@ -171,6 +178,7 @@ def align_prediction(
     icp_iterations: int = 30,
     trim_fraction: float = 0.9,
     seed: int = 42,
+    workers: int = -1,
 ) -> AlignmentResult:
     """Estimate scale, then rigidly align a prediction to its reference.
 
@@ -222,11 +230,13 @@ def align_prediction(
             reference_center.copy(),
             icp_iterations,
             trim_fraction,
+            workers,
         )
         cost = _symmetric_cost(
             transformed,
             reference_sample,
             trim_fraction,
+            workers,
         )
         if cost < best_cost:
             best_cost = cost
@@ -248,16 +258,21 @@ def align_prediction(
 def geometric_metrics(
     aligned_prediction: np.ndarray,
     reference: np.ndarray,
+    *,
+    noise_threshold_fraction: float = DEFAULT_NOISE_THRESHOLD,
+    workers: int = -1,
 ) -> dict[str, float]:
-    """Compute directional distances and their symmetric L1 Chamfer mean."""
+    """Compute directional distances and the fraction of points far off surface."""
     prediction = _points(aligned_prediction, "aligned_prediction")
     reference = _points(reference, "reference")
 
-    accuracy = float(
-        np.mean(cKDTree(reference).query(prediction, workers=-1)[0])
-    )
+    if not np.isfinite(noise_threshold_fraction) or noise_threshold_fraction <= 0:
+        raise ValueError("noise_threshold_fraction must be positive and finite")
+
+    prediction_distances = cKDTree(reference).query(prediction, workers=workers)[0]
+    accuracy = float(np.mean(prediction_distances))
     completeness = float(
-        np.mean(cKDTree(prediction).query(reference, workers=-1)[0])
+        np.mean(cKDTree(prediction).query(reference, workers=workers)[0])
     )
     chamfer_l1 = 0.5 * (accuracy + completeness)
     reference_diagonal = float(
@@ -265,6 +280,8 @@ def geometric_metrics(
     )
     if reference_diagonal <= np.finfo(float).eps:
         raise ValueError("Reference bounding box is degenerate")
+    noise_threshold = noise_threshold_fraction * reference_diagonal
+    noise_error_percent = float(100 * np.mean(prediction_distances > noise_threshold))
 
     return {
         "accuracy": accuracy,
@@ -274,21 +291,32 @@ def geometric_metrics(
         "normalized_completeness": completeness / reference_diagonal,
         "normalized_chamfer_l1": chamfer_l1 / reference_diagonal,
         "reference_diagonal": reference_diagonal,
+        "noise_error_percent": noise_error_percent,
+        "noise_threshold_fraction": noise_threshold_fraction,
     }
 
 
 def evaluate_geometry(
     prediction: np.ndarray,
     reference: np.ndarray,
+    *,
+    noise_threshold_fraction: float = DEFAULT_NOISE_THRESHOLD,
+    workers: int = -1,
     **alignment_options,
 ) -> GeometryMetrics:
     """Align prediction points and return the agreed output-only metrics."""
     alignment = align_prediction(
         prediction,
         reference,
+        workers=workers,
         **alignment_options,
     )
-    distances = geometric_metrics(alignment.points, reference)
+    distances = geometric_metrics(
+        alignment.points,
+        reference,
+        noise_threshold_fraction=noise_threshold_fraction,
+        workers=workers,
+    )
     return GeometryMetrics(
         scale_correction=alignment.scale_correction,
         scale_error_percent=alignment.scale_error_percent,
